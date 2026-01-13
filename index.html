@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vastu Application</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Vastu Application</h1>
+        
+        <!-- Step 1: Upload and Align Image -->
+        <div id="step1" class="step active">
+            <h2>Step 1: Upload and Align Image</h2>
+            <div class="upload-section">
+                <input type="file" id="imageUpload" accept="image/*">
+                <label for="imageUpload" class="upload-btn">Upload House Plan</label>
+            </div>
+            
+            <div id="imageContainer" class="image-container" style="display: none;">
+                <canvas id="imageCanvas"></canvas>
+            </div>
+            
+            <div id="toolbox" class="toolbox" style="display: none;">
+                <div class="tool-group">
+                    <label>Rotate:</label>
+                    <button id="rotateLeft">-</button>
+                    <input type="number" id="rotateInput" value="0" min="0" max="360">
+                    <button id="rotateRight">+</button>
+                    <span>°</span>
+                </div>
+                <div class="tool-group">
+                    <button id="moveBtn" class="tool-btn">✋ Move</button>
+                    <button id="zoomIn" class="tool-btn">🔍+</button>
+                    <button id="zoomOut" class="tool-btn">🔍-</button>
+                </div>
+            </div>
+            
+            <button id="nextStep1" class="next-btn" style="display: none;">Next</button>
+        </div>
+        
+        <!-- Step 2: Draw Outer Walls -->
+        <div id="step2" class="step">
+            <h2>Step 2: Draw Outer Walls</h2>
+            <p>Draw the outer walls of your house. Click to add points and create a closed circuit.</p>
+            <div class="drawing-container">
+                <canvas id="drawingCanvas"></canvas>
+            </div>
+            <div class="drawing-controls">
+                <button id="clearWalls">Clear</button>
+                <button id="doneWalls" disabled>Done</button>
+            </div>
+            <button id="nextStep2" class="next-btn" style="display: none;">Next</button>
+        </div>
+        
+        <!-- Step 3: Direction Analysis -->
+        <div id="step3" class="step">
+            <h2>Step 3: Direction Analysis</h2>
+            <div class="direction-controls">
+                <button id="showRectangle">Show Imaginary Rectangle</button>
+                <div class="direction-selector">
+                    <label>Directions:</label>
+                    <select id="directionCount">
+                        <option value="4">4 Directions</option>
+                        <option value="8">8 Directions</option>
+                        <option value="16">16 Directions</option>
+                    </select>
+                </div>
+                <button id="showDirections">Show Directions</button>
+                <button id="colorSections">Color Sections</button>
+            </div>
+            <div class="analysis-container">
+                <canvas id="analysisCanvas"></canvas>
+            </div>
+            <button id="nextStep3" class="next-btn">Next</button>
+        </div>
+        
+        <!-- Step 4: Final View -->
+        <div id="step4" class="step">
+            <h2>Step 4: Final View</h2>
+            <div class="final-controls">
+                <div class="tool-group">
+                    <label>Final Rotation:</label>
+                    <button id="finalRotateLeft">-</button>
+                    <input type="number" id="finalRotateInput" value="0" min="0" max="360">
+                    <button id="finalRotateRight">+</button>
+                    <span>°</span>
+                </div>
+                <button id="downloadImage" class="download-btn">Download Image</button>
+            </div>
+            <div class="final-container">
+                <canvas id="finalCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
