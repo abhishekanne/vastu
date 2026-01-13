@@ -8,14 +8,19 @@ class VastuApp {
         this.offsetY = 0;
         this.isDragging = false;
         this.walls = [];
+        this.wallHistory = [];
+        this.wallHistoryIndex = -1;
         this.isDrawing = false;
         this.centerPoint = null;
         this.directions = [];
         this.showColors = false;
+        this.showDirectionsVisible = false;
+        this.showRectangleVisible = false;
         this.finalRotation = 0;
         
         this.initializeEventListeners();
         this.setupCanvases();
+        this.drawGrid(); // Show grid immediately on step 1
     }
     
     initializeEventListeners() {
@@ -30,8 +35,15 @@ class VastuApp {
         document.getElementById('nextStep1').addEventListener('click', () => this.goToStep(2));
         
         // Step 2 - Drawing Walls
+        document.getElementById('drawWalls').addEventListener('click', () => this.toggleDrawMode());
+        document.getElementById('undoWall').addEventListener('click', () => this.undoWall());
+        document.getElementById('redoWall').addEventListener('click', () => this.redoWall());
         document.getElementById('clearWalls').addEventListener('click', () => this.clearWalls());
         document.getElementById('doneWalls').addEventListener('click', () => this.finishWalls());
+        document.getElementById('backStep2').addEventListener('click', () => this.goToStep(1));
+        document.getElementById('moveBtn2').addEventListener('click', () => this.toggleMoveMode2());
+        document.getElementById('zoomIn2').addEventListener('click', () => this.zoom2(1.1));
+        document.getElementById('zoomOut2').addEventListener('click', () => this.zoom2(0.9));
         document.getElementById('nextStep2').addEventListener('click', () => this.goToStep(3));
         
         // Step 3 - Direction Analysis
@@ -39,6 +51,7 @@ class VastuApp {
         document.getElementById('directionCount').addEventListener('change', (e) => this.updateDirections(e.target.value));
         document.getElementById('showDirections').addEventListener('click', () => this.showDirections());
         document.getElementById('colorSections').addEventListener('click', () => this.toggleColors());
+        document.getElementById('backStep3').addEventListener('click', () => this.goToStep(2));
         document.getElementById('nextStep3').addEventListener('click', () => this.goToStep(4));
         
         // Step 4 - Final View
@@ -58,14 +71,21 @@ class VastuApp {
         this.finalCanvas = document.getElementById('finalCanvas');
         this.finalCtx = this.finalCanvas.getContext('2d');
         
-        // Set canvas sizes
-        [this.imageCanvas, this.drawingCanvas, this.analysisCanvas, this.finalCanvas].forEach(canvas => {
-            canvas.width = 800;
-            canvas.height = 600;
-        });
+        this.resizeCanvases();
+        window.addEventListener('resize', () => this.resizeCanvases());
         
         this.setupDrawingEvents();
         this.setupImageEvents();
+    }
+    
+    resizeCanvases() {
+        const containerWidth = Math.min(window.innerWidth - 40, 800);
+        const containerHeight = Math.min(window.innerHeight - 300, 500);
+        
+        [this.imageCanvas, this.drawingCanvas, this.analysisCanvas, this.finalCanvas].forEach(canvas => {
+            canvas.width = containerWidth;
+            canvas.height = containerHeight;
+        });
     }
     
     setupImageEvents() {
@@ -76,7 +96,15 @@ class VastuApp {
     }
     
     setupDrawingEvents() {
-        this.drawingCanvas.addEventListener('click', (e) => this.addWallPoint(e));
+        this.drawingCanvas.addEventListener('click', (e) => {
+            if (document.getElementById('drawWalls').classList.contains('active')) {
+                this.addWallPoint(e);
+            }
+        });
+        this.drawingCanvas.addEventListener('mousedown', (e) => this.startDrag2(e));
+        this.drawingCanvas.addEventListener('mousemove', (e) => this.drag2(e));
+        this.drawingCanvas.addEventListener('mouseup', () => this.endDrag2());
+        this.drawingCanvas.addEventListener('wheel', (e) => this.handleWheel2(e));
     }
     
     handleImageUpload(event) {
@@ -89,9 +117,10 @@ class VastuApp {
             this.image.onload = () => {
                 this.resetTransform();
                 this.drawImage();
-                document.getElementById('imageContainer').style.display = 'block';
-                document.getElementById('toolbox').style.display = 'flex';
-                document.getElementById('nextStep1').style.display = 'block';
+                document.getElementById('imageTools').style.display = 'flex';
+                document.getElementById('controlTools').style.display = 'flex';
+                document.getElementById('nextStep1').disabled = false;
+                this.imageCanvas.style.cursor = 'move';
             };
             this.image.src = e.target.result;
         };
@@ -128,7 +157,7 @@ class VastuApp {
     }
     
     drawGrid() {
-        this.imageCtx.strokeStyle = '#ddd';
+        this.imageCtx.strokeStyle = '#999';
         this.imageCtx.lineWidth = 1;
         this.imageCtx.setLineDash([2, 2]);
         
@@ -210,16 +239,23 @@ class VastuApp {
             this.setupDrawingCanvas();
         } else if (step === 3) {
             this.setupAnalysisCanvas();
+            this.setupStep3Events();
         } else if (step === 4) {
             this.setupFinalCanvas();
         }
     }
     
+    setupStep3Events() {
+        // No interactive events for step 3 - view only
+    }
+    
     setupDrawingCanvas() {
         this.drawingCtx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
+        this.drawGridOnCanvas(this.drawingCtx, this.drawingCanvas);
         if (this.image) {
             this.drawImageOnCanvas(this.drawingCtx, this.drawingCanvas);
         }
+        this.drawGridOnCanvas(this.drawingCtx, this.drawingCanvas);
     }
     
     drawImageOnCanvas(ctx, canvas) {
@@ -238,14 +274,127 @@ class VastuApp {
         ctx.restore();
     }
     
+    drawGridOnCanvas(ctx, canvas) {
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        
+        const gridSize = 20;
+        for (let x = 0; x <= canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        
+        for (let y = 0; y <= canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+        
+        ctx.setLineDash([]);
+    }
+    
+    toggleDrawMode() {
+        const drawBtn = document.getElementById('drawWalls');
+        const moveBtn = document.getElementById('moveBtn2');
+        
+        drawBtn.classList.add('active');
+        moveBtn.classList.remove('active');
+        this.drawingCanvas.style.cursor = 'crosshair';
+    }
+    
+    toggleMoveMode2() {
+        const drawBtn = document.getElementById('drawWalls');
+        const moveBtn = document.getElementById('moveBtn2');
+        
+        moveBtn.classList.toggle('active');
+        if (moveBtn.classList.contains('active')) {
+            drawBtn.classList.remove('active');
+            this.drawingCanvas.style.cursor = 'move';
+        } else {
+            drawBtn.classList.add('active');
+            this.drawingCanvas.style.cursor = 'crosshair';
+        }
+    }
+    
+    zoom2(factor) {
+        this.scale *= factor;
+        this.scale = Math.max(0.1, Math.min(3, this.scale));
+        this.drawWalls();
+    }
+    
+    startDrag2(e) {
+        if (!document.getElementById('moveBtn2').classList.contains('active')) return;
+        this.isDragging = true;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+    }
+    
+    drag2(e) {
+        if (!this.isDragging) return;
+        const deltaX = e.clientX - this.lastX;
+        const deltaY = e.clientY - this.lastY;
+        this.offsetX += deltaX;
+        this.offsetY += deltaY;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+        this.drawWalls();
+    }
+    
+    endDrag2() {
+        this.isDragging = false;
+    }
+    
+    handleWheel2(e) {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 0.9 : 1.1;
+        this.zoom2(factor);
+    }
+    
     addWallPoint(e) {
         const rect = this.drawingCanvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
         this.walls.push({x, y});
+        this.saveWallState();
         this.drawWalls();
         this.checkClosedCircuit();
+    }
+    
+    saveWallState() {
+        this.wallHistoryIndex++;
+        this.wallHistory = this.wallHistory.slice(0, this.wallHistoryIndex);
+        this.wallHistory.push([...this.walls]);
+        this.updateUndoRedoButtons();
+    }
+    
+    undoWall() {
+        if (this.wallHistoryIndex > 0) {
+            this.wallHistoryIndex--;
+            this.walls = [...this.wallHistory[this.wallHistoryIndex]];
+            this.drawWalls();
+            this.checkClosedCircuit();
+            this.updateUndoRedoButtons();
+        }
+    }
+    
+    redoWall() {
+        if (this.wallHistoryIndex < this.wallHistory.length - 1) {
+            this.wallHistoryIndex++;
+            this.walls = [...this.wallHistory[this.wallHistoryIndex]];
+            this.drawWalls();
+            this.checkClosedCircuit();
+            this.updateUndoRedoButtons();
+        }
+    }
+    
+    updateUndoRedoButtons() {
+        document.getElementById('undoWall').disabled = this.wallHistoryIndex <= 0;
+        document.getElementById('redoWall').disabled = this.wallHistoryIndex >= this.wallHistory.length - 1;
     }
     
     drawWalls() {
@@ -293,8 +442,11 @@ class VastuApp {
     
     clearWalls() {
         this.walls = [];
+        this.wallHistory = [[]];
+        this.wallHistoryIndex = 0;
         this.setupDrawingCanvas();
         document.getElementById('doneWalls').disabled = true;
+        this.updateUndoRedoButtons();
     }
     
     finishWalls() {
@@ -325,6 +477,15 @@ class VastuApp {
             this.analysisCtx.closePath();
             this.analysisCtx.stroke();
         }
+        
+        // Draw points
+        this.walls.forEach((point, index) => {
+            const isConnected = this.isPointConnected(index);
+            this.analysisCtx.fillStyle = isConnected ? '#27ae60' : '#e74c3c';
+            this.analysisCtx.beginPath();
+            this.analysisCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+            this.analysisCtx.fill();
+        });
     }
     
     calculateCenter() {
@@ -345,27 +506,11 @@ class VastuApp {
     }
     
     showImaginaryRectangle() {
-        if (!this.centerPoint) return;
+        this.showRectangleVisible = !this.showRectangleVisible;
+        const btn = document.getElementById('showRectangle');
+        btn.textContent = this.showRectangleVisible ? 'Hide Imaginary Rectangle' : 'Show Imaginary Rectangle';
         
-        this.setupAnalysisCanvas();
-        
-        // Draw dotted rectangle
-        this.analysisCtx.setLineDash([5, 5]);
-        this.analysisCtx.strokeStyle = '#95a5a6';
-        this.analysisCtx.lineWidth = 1;
-        this.analysisCtx.strokeRect(
-            this.boundingRect.minX,
-            this.boundingRect.minY,
-            this.boundingRect.maxX - this.boundingRect.minX,
-            this.boundingRect.maxY - this.boundingRect.minY
-        );
-        
-        // Draw center point
-        this.analysisCtx.setLineDash([]);
-        this.analysisCtx.fillStyle = 'rgba(230, 126, 34, 0.7)';
-        this.analysisCtx.beginPath();
-        this.analysisCtx.arc(this.centerPoint.x, this.centerPoint.y, 8, 0, 2 * Math.PI);
-        this.analysisCtx.fill();
+        this.redrawAnalysisView();
     }
     
     updateDirections(count) {
@@ -397,15 +542,166 @@ class VastuApp {
     }
     
     showDirections() {
+        this.showDirectionsVisible = !this.showDirectionsVisible;
+        const btn = document.getElementById('showDirections');
+        btn.textContent = this.showDirectionsVisible ? 'Hide Directions' : 'Show Directions';
+        
+        this.redrawAnalysisView();
+    }
+    
+    toggleColors() {
+        this.showColors = !this.showColors;
+        const btn = document.getElementById('colorSections');
+        btn.textContent = this.showColors ? 'Hide Colors' : 'Color Sections';
+        
+        this.redrawAnalysisView();
+    }
+    
+    redrawAnalysisView() {
+        this.setupAnalysisCanvas();
+        
+        // Draw 3x3 grid if rectangle is visible
+        if (this.showRectangleVisible && this.centerPoint) {
+            this.draw3x3Grid();
+        }
+        
+        // Draw directions if visible
+        if (this.showDirectionsVisible) {
+            this.drawDirectionsOnly();
+        }
+        
+        // Always draw center point if it exists
+        if (this.centerPoint) {
+            this.analysisCtx.fillStyle = 'rgba(230, 126, 34, 0.7)';
+            this.analysisCtx.beginPath();
+            this.analysisCtx.arc(this.centerPoint.x, this.centerPoint.y, 8, 0, 2 * Math.PI);
+            this.analysisCtx.fill();
+        }
+    }
+    
+    draw3x3Grid() {
+        const rectWidth = this.boundingRect.maxX - this.boundingRect.minX;
+        const rectHeight = this.boundingRect.maxY - this.boundingRect.minY;
+        const cellWidth = rectWidth / 3;
+        const cellHeight = rectHeight / 3;
+        
+        // Define 9 different transparent colors for 3x3 grid
+        const colors = [
+            'rgba(255, 0, 0, 0.2)',    // Red
+            'rgba(0, 255, 0, 0.2)',    // Green
+            'rgba(0, 0, 255, 0.2)',    // Blue
+            'rgba(255, 255, 0, 0.2)',  // Yellow
+            'rgba(255, 0, 255, 0.2)',  // Magenta
+            'rgba(0, 255, 255, 0.2)',  // Cyan
+            'rgba(255, 165, 0, 0.2)',  // Orange
+            'rgba(128, 0, 128, 0.2)',  // Purple
+            'rgba(255, 192, 203, 0.2)' // Pink
+        ];
+        
+        let colorIndex = 0;
+        
+        // Draw 3x3 grid
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const x = this.boundingRect.minX + col * cellWidth;
+                const y = this.boundingRect.minY + row * cellHeight;
+                
+                // Fill with color if colors are enabled
+                if (this.showColors) {
+                    this.analysisCtx.fillStyle = colors[colorIndex];
+                    this.analysisCtx.fillRect(x, y, cellWidth, cellHeight);
+                }
+                
+                // Draw grid lines
+                this.analysisCtx.setLineDash([5, 5]);
+                this.analysisCtx.strokeStyle = '#95a5a6';
+                this.analysisCtx.lineWidth = 1;
+                this.analysisCtx.strokeRect(x, y, cellWidth, cellHeight);
+                this.analysisCtx.setLineDash([]);
+                
+                colorIndex++;
+            }
+        }
+    }
+    
+    toggleMoveMode3() {
+        const moveBtn = document.getElementById('moveBtn3');
+        moveBtn.classList.toggle('active');
+        this.analysisCanvas.style.cursor = moveBtn.classList.contains('active') ? 'move' : 'default';
+    }
+    
+    zoom3(factor) {
+        this.scale *= factor;
+        this.scale = Math.max(0.1, Math.min(3, this.scale));
+        
+        // Simple redraw without complex method calls
+        this.analysisCtx.clearRect(0, 0, this.analysisCanvas.width, this.analysisCanvas.height);
+        if (this.image) {
+            this.drawImageOnCanvas(this.analysisCtx, this.analysisCanvas);
+        }
+        this.drawWallsOnAnalysis();
+        this.calculateCenter();
+        
+        if (this.showDirectionsVisible) {
+            this.drawDirectionsOnly();
+        }
+        if (this.showColors) {
+            this.drawColoredSections();
+        }
+    }
+    
+    startDrag3(e) {
+        if (!document.getElementById('moveBtn3').classList.contains('active')) return;
+        this.isDragging = true;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+    }
+    
+    drag3(e) {
+        if (!this.isDragging) return;
+        const deltaX = e.clientX - this.lastX;
+        const deltaY = e.clientY - this.lastY;
+        this.offsetX += deltaX;
+        this.offsetY += deltaY;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+        
+        // Simple redraw without complex method calls
+        this.analysisCtx.clearRect(0, 0, this.analysisCanvas.width, this.analysisCanvas.height);
+        if (this.image) {
+            this.drawImageOnCanvas(this.analysisCtx, this.analysisCanvas);
+        }
+        this.drawWallsOnAnalysis();
+        this.calculateCenter();
+        
+        if (this.showDirectionsVisible) {
+            this.drawDirectionsOnly();
+        }
+        if (this.showColors) {
+            this.drawColoredSections();
+        }
+    }
+    
+    endDrag3() {
+        this.isDragging = false;
+    }
+    
+    handleWheel3(e) {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 0.9 : 1.1;
+        this.zoom3(factor);
+    }
+    
+
+    drawDirectionsOnly() {
         if (!this.centerPoint) return;
         
-        this.setupAnalysisCanvas();
         this.generateDirections();
         
         const radius = 200;
         
         this.directions.forEach(dir => {
-            const radians = (dir.angle - 90) * Math.PI / 180; // -90 to make North point up
+            const radians = (dir.angle - 90) * Math.PI / 180;
             const endX = this.centerPoint.x + Math.cos(radians) * radius;
             const endY = this.centerPoint.y + Math.sin(radians) * radius;
             
@@ -421,7 +717,7 @@ class VastuApp {
             const labelX = this.centerPoint.x + Math.cos(radians) * (radius + 20);
             const labelY = this.centerPoint.y + Math.sin(radians) * (radius + 20);
             
-            this.analysisCtx.fillStyle = '#2c3e50';
+            this.analysisCtx.fillStyle = '#000000';
             this.analysisCtx.font = '14px Arial';
             this.analysisCtx.textAlign = 'center';
             this.analysisCtx.fillText(dir.name, labelX, labelY);
@@ -434,20 +730,8 @@ class VastuApp {
         this.analysisCtx.fill();
     }
     
-    toggleColors() {
-        this.showColors = !this.showColors;
-        const btn = document.getElementById('colorSections');
-        btn.textContent = this.showColors ? 'Hide Colors' : 'Color Sections';
-        
-        if (this.showColors) {
-            this.drawColoredSections();
-        } else {
-            this.showDirections();
-        }
-    }
-    
     drawColoredSections() {
-        this.showDirections();
+        this.drawDirectionsOnly();
         
         if (!this.centerPoint || this.directions.length === 0) return;
         
@@ -467,7 +751,7 @@ class VastuApp {
         });
         
         // Redraw direction lines and labels
-        this.showDirections();
+        this.drawDirectionsOnly();
     }
     
     setupFinalCanvas() {
@@ -495,8 +779,15 @@ class VastuApp {
         // Draw walls
         this.drawWallsOnFinal();
         
-        // Draw directions with rotated labels
-        this.drawRotatedDirections();
+        // Draw 3x3 grid if it was visible in step 3
+        if (this.showRectangleVisible && this.centerPoint) {
+            this.draw3x3GridOnFinal();
+        }
+        
+        // Draw directions if they were visible in step 3
+        if (this.showDirectionsVisible) {
+            this.drawRotatedDirections();
+        }
         
         this.finalCtx.restore();
     }
@@ -516,26 +807,55 @@ class VastuApp {
         }
     }
     
+    draw3x3GridOnFinal() {
+        const rectWidth = this.boundingRect.maxX - this.boundingRect.minX;
+        const rectHeight = this.boundingRect.maxY - this.boundingRect.minY;
+        const cellWidth = rectWidth / 3;
+        const cellHeight = rectHeight / 3;
+        
+        // Define 9 different transparent colors for 3x3 grid
+        const colors = [
+            'rgba(255, 0, 0, 0.2)',    // Red
+            'rgba(0, 255, 0, 0.2)',    // Green
+            'rgba(0, 0, 255, 0.2)',    // Blue
+            'rgba(255, 255, 0, 0.2)',  // Yellow
+            'rgba(255, 0, 255, 0.2)',  // Magenta
+            'rgba(0, 255, 255, 0.2)',  // Cyan
+            'rgba(255, 165, 0, 0.2)',  // Orange
+            'rgba(128, 0, 128, 0.2)',  // Purple
+            'rgba(255, 192, 203, 0.2)' // Pink
+        ];
+        
+        let colorIndex = 0;
+        
+        // Draw 3x3 grid
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const x = this.boundingRect.minX + col * cellWidth;
+                const y = this.boundingRect.minY + row * cellHeight;
+                
+                // Fill with color if colors were enabled in step 3
+                if (this.showColors) {
+                    this.finalCtx.fillStyle = colors[colorIndex];
+                    this.finalCtx.fillRect(x, y, cellWidth, cellHeight);
+                }
+                
+                // Draw grid lines
+                this.finalCtx.setLineDash([5, 5]);
+                this.finalCtx.strokeStyle = '#95a5a6';
+                this.finalCtx.lineWidth = 1;
+                this.finalCtx.strokeRect(x, y, cellWidth, cellHeight);
+                this.finalCtx.setLineDash([]);
+                
+                colorIndex++;
+            }
+        }
+    }
+    
     drawRotatedDirections() {
         if (!this.centerPoint || this.directions.length === 0) return;
         
         const radius = 200;
-        
-        // Draw colored sections if enabled
-        if (this.showColors) {
-            const angleStep = 360 / this.directions.length;
-            this.directions.forEach((dir, index) => {
-                const startAngle = (dir.angle - angleStep/2 - 90) * Math.PI / 180;
-                const endAngle = (dir.angle + angleStep/2 - 90) * Math.PI / 180;
-                
-                this.finalCtx.fillStyle = dir.color.replace('50%)', '20%)');
-                this.finalCtx.beginPath();
-                this.finalCtx.moveTo(this.centerPoint.x, this.centerPoint.y);
-                this.finalCtx.arc(this.centerPoint.x, this.centerPoint.y, radius, startAngle, endAngle);
-                this.finalCtx.closePath();
-                this.finalCtx.fill();
-            });
-        }
         
         this.directions.forEach(dir => {
             const radians = (dir.angle - 90) * Math.PI / 180;
@@ -557,7 +877,7 @@ class VastuApp {
             this.finalCtx.save();
             this.finalCtx.translate(labelX, labelY);
             this.finalCtx.rotate(-this.finalRotation * Math.PI / 180); // Counter-rotate text
-            this.finalCtx.fillStyle = '#2c3e50';
+            this.finalCtx.fillStyle = '#000000';
             this.finalCtx.font = '14px Arial';
             this.finalCtx.textAlign = 'center';
             this.finalCtx.fillText(dir.name, 0, 0);
@@ -581,7 +901,6 @@ class VastuApp {
         this.finalRotation = parseInt(value) || 0;
         this.drawFinalView();
     }
-    
     downloadImage() {
         const link = document.createElement('a');
         link.download = 'vastu-analysis.png';

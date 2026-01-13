@@ -3,77 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vastu Application</title>
+    <title>Vastu</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Vastu Application</h1>
+        <h1>Vastu</h1>
         
         <!-- Step 1: Upload and Align Image -->
         <div id="step1" class="step active">
-            <h2>Step 1: Upload and Align Image</h2>
-            <div class="upload-section">
-                <input type="file" id="imageUpload" accept="image/*">
-                <label for="imageUpload" class="upload-btn">Upload House Plan</label>
+            <div class="step-header">
+                <h2>Step 1: Upload and Align Image</h2>
+                <button id="nextStep1" class="next-btn" disabled>Next</button>
             </div>
             
-            <div id="imageContainer" class="image-container" style="display: none;">
-                <canvas id="imageCanvas"></canvas>
-            </div>
-            
-            <div id="toolbox" class="toolbox" style="display: none;">
+            <div id="toolbox" class="toolbox">
                 <div class="tool-group">
+                    <input type="file" id="imageUpload" accept="image/*">
+                    <label for="imageUpload" class="upload-btn">Upload House Plan</label>
+                </div>
+                <div class="tool-group" style="display: none;" id="imageTools">
                     <label>Rotate:</label>
                     <button id="rotateLeft">-</button>
                     <input type="number" id="rotateInput" value="0" min="0" max="360">
                     <button id="rotateRight">+</button>
                     <span>°</span>
                 </div>
-                <div class="tool-group">
-                    <button id="moveBtn" class="tool-btn">✋ Move</button>
+                <div class="tool-group" style="display: none;" id="controlTools">
+                    <button id="moveBtn" class="tool-btn active">✋ Move</button>
                     <button id="zoomIn" class="tool-btn">🔍+</button>
                     <button id="zoomOut" class="tool-btn">🔍-</button>
                 </div>
             </div>
             
-            <button id="nextStep1" class="next-btn" style="display: none;">Next</button>
+            <div id="imageContainer" class="image-container">
+                <canvas id="imageCanvas"></canvas>
+            </div>
         </div>
         
         <!-- Step 2: Draw Outer Walls -->
         <div id="step2" class="step">
-            <h2>Step 2: Draw Outer Walls</h2>
+            <div class="step-header">
+                <h2>Step 2: Draw Outer Walls</h2>
+                <div class="step-nav">
+                    <button id="backStep2" class="back-btn">Back</button>
+                    <button id="nextStep2" class="next-btn" style="display: none;">Next</button>
+                </div>
+            </div>
             <p>Draw the outer walls of your house. Click to add points and create a closed circuit.</p>
+            
+            <div id="toolbox2" class="toolbox">
+                <div class="tool-group">
+                    <button id="drawWalls" class="tool-btn active">✏️ Draw Walls</button>
+                    <button id="undoWall" class="tool-btn" disabled>↶ Undo</button>
+                    <button id="redoWall" class="tool-btn" disabled>↷ Redo</button>
+                    <button id="clearWalls">Clear</button>
+                </div>
+                <div class="tool-group">
+                    <button id="moveBtn2" class="tool-btn">✋ Move</button>
+                    <button id="zoomIn2" class="tool-btn">🔍+</button>
+                    <button id="zoomOut2" class="tool-btn">🔍-</button>
+                </div>
+                <div class="tool-group">
+                    <button id="doneWalls" disabled>Done</button>
+                </div>
+            </div>
+            
             <div class="drawing-container">
                 <canvas id="drawingCanvas"></canvas>
             </div>
-            <div class="drawing-controls">
-                <button id="clearWalls">Clear</button>
-                <button id="doneWalls" disabled>Done</button>
-            </div>
-            <button id="nextStep2" class="next-btn" style="display: none;">Next</button>
         </div>
         
         <!-- Step 3: Direction Analysis -->
         <div id="step3" class="step">
-            <h2>Step 3: Direction Analysis</h2>
-            <div class="direction-controls">
-                <button id="showRectangle">Show Imaginary Rectangle</button>
-                <div class="direction-selector">
-                    <label>Directions:</label>
-                    <select id="directionCount">
-                        <option value="4">4 Directions</option>
-                        <option value="8">8 Directions</option>
-                        <option value="16">16 Directions</option>
-                    </select>
+            <div class="step-header">
+                <h2>Step 3: Direction Analysis</h2>
+                <div class="step-nav">
+                    <button id="backStep3" class="back-btn">Back</button>
+                    <button id="nextStep3" class="next-btn">Next</button>
                 </div>
-                <button id="showDirections">Show Directions</button>
-                <button id="colorSections">Color Sections</button>
             </div>
+            
+            <div id="toolbox3" class="toolbox">
+                <div class="tool-group">
+                    <div class="direction-selector">
+                        <label>Directions:</label>
+                        <select id="directionCount">
+                            <option value="4">4 Directions</option>
+                            <option value="8">8 Directions</option>
+                            <option value="16">16 Directions</option>
+                        </select>
+                    </div>
+                    <button id="showDirections">Show/Hide Directions</button>
+                </div>
+                <div class="tool-group">
+                    <button id="showRectangle">Show Imaginary Rectangle</button>
+                    <button id="colorSections">Color Sections</button>
+                </div>
+            </div>
+            
             <div class="analysis-container">
                 <canvas id="analysisCanvas"></canvas>
             </div>
-            <button id="nextStep3" class="next-btn">Next</button>
         </div>
         
         <!-- Step 4: Final View -->
@@ -94,6 +125,10 @@
             </div>
         </div>
     </div>
+    
+    <footer class="footer">
+        <p>&copy; 2024 Vastu Application. All rights reserved. | Contact: <a href="mailto:info@vastu.com">info@vastu.com</a></p>
+    </footer>
     
     <script src="script.js"></script>
 </body>

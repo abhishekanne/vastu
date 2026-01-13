@@ -13,33 +13,54 @@ body {
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;
 }
 
 h1 {
     text-align: center;
     color: #2c3e50;
-    margin-bottom: 30px;
+    margin-bottom: 15px;
+    font-size: 24px;
 }
 
 .step {
     display: none;
     background: white;
     border-radius: 10px;
-    padding: 20px;
+    padding: 15px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .step.active {
     display: block;
 }
 
-.step h2 {
-    color: #34495e;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 10px;
+.step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.step-nav {
+    display: flex;
+    gap: 10px;
+}
+
+.back-btn {
+    background: #95a5a6;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    font-size: 12px;
+}
+
+.back-btn:hover {
+    background: #7f8c8d;
 }
 
 .upload-section {
@@ -55,10 +76,11 @@ h1 {
     display: inline-block;
     background: #3498db;
     color: white;
-    padding: 12px 24px;
+    padding: 10px 20px;
     border-radius: 5px;
     cursor: pointer;
     transition: background 0.3s;
+    font-size: 14px;
 }
 
 .upload-btn:hover {
@@ -67,10 +89,10 @@ h1 {
 
 .image-container, .drawing-container, .analysis-container, .final-container {
     text-align: center;
-    margin: 20px 0;
+    margin: 10px 0;
     border: 2px dashed #bdc3c7;
     border-radius: 10px;
-    padding: 20px;
+    padding: 10px;
     background: #ecf0f1;
 }
 
@@ -79,15 +101,17 @@ canvas {
     border-radius: 5px;
     background: white;
     cursor: crosshair;
+    max-width: 100%;
+    height: auto;
 }
 
 .toolbox {
     background: #34495e;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 20px 0;
+    padding: 8px 15px;
+    border-radius: 5px;
+    margin: 10px 0;
     display: flex;
-    gap: 20px;
+    gap: 15px;
     align-items: center;
     flex-wrap: wrap;
 }
@@ -101,6 +125,7 @@ canvas {
 
 .tool-group label {
     font-weight: bold;
+    font-size: 12px;
 }
 
 .tool-group button {
@@ -167,10 +192,11 @@ button {
     background: #3498db;
     color: white;
     border: none;
-    padding: 10px 15px;
+    padding: 8px 12px;
     border-radius: 5px;
     cursor: pointer;
     transition: background 0.3s;
+    font-size: 12px;
 }
 
 button:hover {
@@ -182,15 +208,38 @@ button:disabled {
     cursor: not-allowed;
 }
 
-.next-btn {
-    background: #27ae60;
-    font-size: 16px;
-    padding: 12px 24px;
-    margin-top: 20px;
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 10px 0;
+    padding: 8px 15px;
+    background: #ecf0f1;
+    border-radius: 5px;
 }
 
-.next-btn:hover {
-    background: #229954;
+.progress-bar {
+    flex: 1;
+    height: 6px;
+    background: #bdc3c7;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #3498db;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.next-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+.next-btn:disabled:hover {
+    background: #95a5a6;
 }
 
 .download-btn {
@@ -220,22 +269,20 @@ button:disabled {
     background: #27ae60;
 }
 
-@media (max-width: 768px) {
-    .container {
-        padding: 10px;
-    }
-    
-    .toolbox, .drawing-controls, .direction-controls, .final-controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .tool-group {
-        justify-content: center;
-    }
-    
-    canvas {
-        max-width: 100%;
-        height: auto;
-    }
+.footer {
+    background: #2c3e50;
+    color: white;
+    text-align: center;
+    padding: 15px;
+    margin-top: 20px;
+    font-size: 12px;
+}
+
+.footer a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
 }
