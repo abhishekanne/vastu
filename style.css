@@ -286,3 +286,23 @@ button:disabled {
 .footer a:hover {
     text-decoration: underline;
 }
+
+/* Room Popup Styles */
+#roomPopup {
+    font-family: Arial, sans-serif;
+}
+
+#roomPopup h4 {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+#roomPopup button {
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+#roomPopup button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}

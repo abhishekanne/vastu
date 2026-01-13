@@ -23,6 +23,14 @@ class VastuApp {
         this.exitArrows = [];
         this.showExitLabels = true;
         this.selectedTriangle = null;
+        this.gridRooms = Array(9).fill(null); // 3x3 grid room assignments
+        this.showQuestionMarks = false;
+        this.roomTable = {
+            visible: false,
+            x: 50,
+            y: 50,
+            isDragging: false
+        };
         
         this.initializeEventListeners();
         this.setupCanvases();
@@ -67,6 +75,8 @@ class VastuApp {
         document.getElementById('directionCount').addEventListener('change', (e) => this.updateDirections(e.target.value));
         document.getElementById('showDirections').addEventListener('click', () => this.showDirections());
         document.getElementById('colorSections').addEventListener('click', () => this.toggleColors());
+        document.getElementById('showGrid').addEventListener('click', () => this.toggleGrid());
+        document.getElementById('showRoomTable').addEventListener('click', () => this.toggleRoomTable());
         document.getElementById('backStep5').addEventListener('click', () => this.goToStep(4));
         document.getElementById('nextStep5').addEventListener('click', () => this.goToStep(6));
         
@@ -580,7 +590,10 @@ class VastuApp {
     }
     
     setupStep5Events() {
-        // No interactive events for step 5 - view only
+        this.analysisCanvas.addEventListener('click', (e) => this.handleGridClick(e));
+        this.analysisCanvas.addEventListener('mousedown', (e) => this.handleTableDrag(e));
+        this.analysisCanvas.addEventListener('mousemove', (e) => this.handleTableMove(e));
+        this.analysisCanvas.addEventListener('mouseup', () => this.endTableDrag());
     }
     
     setupDrawingCanvas() {
@@ -966,6 +979,11 @@ class VastuApp {
             this.analysisCtx.arc(this.centerPoint.x, this.centerPoint.y, 8, 0, 2 * Math.PI);
             this.analysisCtx.fill();
         }
+        
+        // Draw room table if visible
+        if (this.roomTable.visible) {
+            this.drawRoomTable();
+        }
     }
     
     draw3x3Grid() {
@@ -995,8 +1013,8 @@ class VastuApp {
                 const x = this.boundingRect.minX + col * cellWidth;
                 const y = this.boundingRect.minY + row * cellHeight;
                 
-                // Fill with color if colors are enabled
-                if (this.showColors) {
+                // Fill with color if colors are enabled and room is assigned
+                if (this.showColors && this.gridRooms[row * 3 + col]) {
                     this.analysisCtx.fillStyle = colors[colorIndex];
                     this.analysisCtx.fillRect(x, y, cellWidth, cellHeight);
                 }
@@ -1007,6 +1025,37 @@ class VastuApp {
                 this.analysisCtx.lineWidth = 1;
                 this.analysisCtx.strokeRect(x, y, cellWidth, cellHeight);
                 this.analysisCtx.setLineDash([]);
+                
+                // Draw question mark in center of cell if grid is visible
+                if (this.showQuestionMarks) {
+                    const centerX = x + cellWidth / 2;
+                    const centerY = y + cellHeight / 2;
+                    
+                    // Draw question mark background circle
+                    this.analysisCtx.fillStyle = 'rgba(52, 152, 219, 0.8)';
+                    this.analysisCtx.beginPath();
+                    this.analysisCtx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
+                    this.analysisCtx.fill();
+                    
+                    // Draw question mark
+                    this.analysisCtx.fillStyle = 'white';
+                    this.analysisCtx.font = 'bold 20px Arial';
+                    this.analysisCtx.textAlign = 'center';
+                    this.analysisCtx.textBaseline = 'middle';
+                    this.analysisCtx.fillText('?', centerX, centerY);
+                }
+                
+                // Draw room label if assigned
+                if (this.gridRooms[row * 3 + col]) {
+                    const centerX = x + cellWidth / 2;
+                    const centerY = y + cellHeight / 2;
+                    
+                    this.analysisCtx.fillStyle = '#2c3e50';
+                    this.analysisCtx.font = 'bold 12px Arial';
+                    this.analysisCtx.textAlign = 'center';
+                    this.analysisCtx.textBaseline = 'middle';
+                    this.analysisCtx.fillText(this.gridRooms[row * 3 + col], centerX, centerY + 25);
+                }
                 
                 colorIndex++;
             }
@@ -1354,6 +1403,284 @@ class VastuApp {
         link.download = 'vastu-analysis.png';
         link.href = this.finalCanvas.toDataURL();
         link.click();
+    }
+    
+    toggleGrid() {
+        this.showQuestionMarks = !this.showQuestionMarks;
+        const btn = document.getElementById('showGrid');
+        btn.textContent = this.showQuestionMarks ? 'Hide Grid Markers' : 'Show Grid Markers';
+        this.redrawAnalysisView();
+    }
+    
+    toggleRoomTable() {
+        this.roomTable.visible = !this.roomTable.visible;
+        const btn = document.getElementById('showRoomTable');
+        btn.textContent = this.roomTable.visible ? 'Hide Room Table' : 'Show Room Table';
+        this.redrawAnalysisView();
+    }
+    
+    handleGridClick(e) {
+        if (!this.showQuestionMarks || !this.showRectangleVisible) return;
+        
+        const rect = this.analysisCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if click is within grid bounds
+        const rectWidth = this.boundingRect.maxX - this.boundingRect.minX;
+        const rectHeight = this.boundingRect.maxY - this.boundingRect.minY;
+        const cellWidth = rectWidth / 3;
+        const cellHeight = rectHeight / 3;
+        
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const cellX = this.boundingRect.minX + col * cellWidth;
+                const cellY = this.boundingRect.minY + row * cellHeight;
+                const centerX = cellX + cellWidth / 2;
+                const centerY = cellY + cellHeight / 2;
+                
+                // Check if click is near question mark
+                const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                if (distance < 20) {
+                    this.showRoomSelector(row * 3 + col, e.clientX, e.clientY);
+                    return;
+                }
+            }
+        }
+    }
+    
+    showRoomSelector(gridIndex, x, y) {
+        const rooms = [
+            'Kitchen', 'Living Room', 'Bathroom', 'Open Space', 'Balcony',
+            'Pooja Room', 'Dining Room', 'Master Bedroom', 'Children Bedroom',
+            'Guest Room', 'Study Room', 'Store Room', 'Water Sump', 'Toilet',
+            'Water Tank', 'Staircase', 'Entrance', 'Garage', 'Garden', 'Terrace'
+        ];
+        
+        // Remove existing popup if any
+        const existingPopup = document.getElementById('roomPopup');
+        if (existingPopup) {
+            existingPopup.remove();
+        }
+        
+        // Create popup
+        const popup = document.createElement('div');
+        popup.id = 'roomPopup';
+        popup.style.cssText = `
+            position: fixed;
+            left: ${x}px;
+            top: ${y}px;
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 200px;
+        `;
+        
+        const title = document.createElement('h4');
+        title.textContent = 'Select Room Type:';
+        title.style.margin = '0 0 10px 0';
+        title.style.color = '#2c3e50';
+        popup.appendChild(title);
+        
+        rooms.forEach(room => {
+            const button = document.createElement('button');
+            button.textContent = room;
+            button.style.cssText = `
+                display: block;
+                width: 100%;
+                margin: 2px 0;
+                padding: 8px;
+                background: #ecf0f1;
+                border: 1px solid #bdc3c7;
+                border-radius: 4px;
+                cursor: pointer;
+                text-align: left;
+            `;
+            
+            button.addEventListener('click', () => {
+                this.assignRoom(gridIndex, room);
+                popup.remove();
+            });
+            
+            button.addEventListener('mouseenter', () => {
+                button.style.background = '#3498db';
+                button.style.color = 'white';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.background = '#ecf0f1';
+                button.style.color = 'black';
+            });
+            
+            popup.appendChild(button);
+        });
+        
+        // Add close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        `;
+        closeBtn.addEventListener('click', () => popup.remove());
+        popup.appendChild(closeBtn);
+        
+        document.body.appendChild(popup);
+        
+        // Close popup when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target)) {
+                    popup.remove();
+                    document.removeEventListener('click', closePopup);
+                }
+            });
+        }, 100);
+    }
+    
+    assignRoom(gridIndex, roomType) {
+        this.gridRooms[gridIndex] = roomType;
+        this.redrawAnalysisView();
+    }
+    
+    drawRoomTable() {
+        // Table background
+        this.analysisCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        this.analysisCtx.strokeStyle = '#2c3e50';
+        this.analysisCtx.lineWidth = 2;
+        
+        const tableWidth = 250;
+        const tableHeight = 320;
+        
+        this.analysisCtx.fillRect(this.roomTable.x, this.roomTable.y, tableWidth, tableHeight);
+        this.analysisCtx.strokeRect(this.roomTable.x, this.roomTable.y, tableWidth, tableHeight);
+        
+        // Table header
+        this.analysisCtx.fillStyle = '#3498db';
+        this.analysisCtx.fillRect(this.roomTable.x, this.roomTable.y, tableWidth, 30);
+        
+        this.analysisCtx.fillStyle = 'white';
+        this.analysisCtx.font = 'bold 14px Arial';
+        this.analysisCtx.textAlign = 'center';
+        this.analysisCtx.fillText('Room Assignment Table', this.roomTable.x + tableWidth/2, this.roomTable.y + 20);
+        
+        // Table headers
+        this.analysisCtx.fillStyle = '#ecf0f1';
+        this.analysisCtx.fillRect(this.roomTable.x, this.roomTable.y + 30, tableWidth, 25);
+        
+        this.analysisCtx.strokeStyle = '#bdc3c7';
+        this.analysisCtx.lineWidth = 1;
+        this.analysisCtx.strokeRect(this.roomTable.x, this.roomTable.y + 30, 50, 25);
+        this.analysisCtx.strokeRect(this.roomTable.x + 50, this.roomTable.y + 30, 120, 25);
+        this.analysisCtx.strokeRect(this.roomTable.x + 170, this.roomTable.y + 30, 80, 25);
+        
+        this.analysisCtx.fillStyle = '#2c3e50';
+        this.analysisCtx.font = 'bold 12px Arial';
+        this.analysisCtx.textAlign = 'center';
+        this.analysisCtx.fillText('Box', this.roomTable.x + 25, this.roomTable.y + 47);
+        this.analysisCtx.fillText('Room Type', this.roomTable.x + 110, this.roomTable.y + 47);
+        this.analysisCtx.fillText('Direction', this.roomTable.x + 210, this.roomTable.y + 47);
+        
+        // Table rows
+        for (let i = 0; i < 9; i++) {
+            const rowY = this.roomTable.y + 55 + (i * 30);
+            
+            // Alternate row colors
+            if (i % 2 === 0) {
+                this.analysisCtx.fillStyle = '#f8f9fa';
+                this.analysisCtx.fillRect(this.roomTable.x, rowY, tableWidth, 30);
+            }
+            
+            // Draw cell borders
+            this.analysisCtx.strokeStyle = '#bdc3c7';
+            this.analysisCtx.strokeRect(this.roomTable.x, rowY, 50, 30);
+            this.analysisCtx.strokeRect(this.roomTable.x + 50, rowY, 120, 30);
+            this.analysisCtx.strokeRect(this.roomTable.x + 170, rowY, 80, 30);
+            
+            // Box number
+            this.analysisCtx.fillStyle = '#2c3e50';
+            this.analysisCtx.font = '12px Arial';
+            this.analysisCtx.textAlign = 'center';
+            this.analysisCtx.fillText((i + 1).toString(), this.roomTable.x + 25, rowY + 20);
+            
+            // Room type
+            const roomType = this.gridRooms[i] || 'Not Assigned';
+            this.analysisCtx.fillText(roomType, this.roomTable.x + 110, rowY + 20);
+            
+            // Direction
+            const direction = this.getGridDirection(i);
+            this.analysisCtx.fillText(direction, this.roomTable.x + 210, rowY + 20);
+        }
+        
+        // Drag handle
+        this.analysisCtx.fillStyle = '#95a5a6';
+        this.analysisCtx.fillRect(this.roomTable.x + tableWidth - 20, this.roomTable.y + 5, 15, 20);
+        this.analysisCtx.fillStyle = 'white';
+        this.analysisCtx.font = '12px Arial';
+        this.analysisCtx.textAlign = 'center';
+        this.analysisCtx.fillText('⋮⋮', this.roomTable.x + tableWidth - 12, this.roomTable.y + 18);
+    }
+    
+    getGridDirection(gridIndex) {
+        const directions = [
+            'NW', 'N', 'NE',
+            'W', 'Center', 'E',
+            'SW', 'S', 'SE'
+        ];
+        return directions[gridIndex];
+    }
+    
+    handleTableDrag(e) {
+        if (!this.roomTable.visible) return;
+        
+        const rect = this.analysisCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if click is on table drag handle
+        const tableWidth = 250;
+        const handleX = this.roomTable.x + tableWidth - 20;
+        const handleY = this.roomTable.y + 5;
+        
+        if (x >= handleX && x <= handleX + 15 && y >= handleY && y <= handleY + 20) {
+            this.roomTable.isDragging = true;
+            this.roomTable.dragOffsetX = x - this.roomTable.x;
+            this.roomTable.dragOffsetY = y - this.roomTable.y;
+            this.analysisCanvas.style.cursor = 'move';
+        }
+    }
+    
+    handleTableMove(e) {
+        if (!this.roomTable.isDragging) return;
+        
+        const rect = this.analysisCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.roomTable.x = x - this.roomTable.dragOffsetX;
+        this.roomTable.y = y - this.roomTable.dragOffsetY;
+        
+        // Keep table within canvas bounds
+        this.roomTable.x = Math.max(0, Math.min(this.roomTable.x, this.analysisCanvas.width - 250));
+        this.roomTable.y = Math.max(0, Math.min(this.roomTable.y, this.analysisCanvas.height - 320));
+        
+        this.redrawAnalysisView();
+    }
+    
+    endTableDrag() {
+        this.roomTable.isDragging = false;
+        this.analysisCanvas.style.cursor = 'default';
     }
 }
 
