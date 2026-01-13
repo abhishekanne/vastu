@@ -74,17 +74,56 @@
             </div>
         </div>
         
-        <!-- Step 3: Direction Analysis -->
+        <!-- Step 3: Map Main Door -->
         <div id="step3" class="step">
             <div class="step-header">
-                <h2>Step 3: Direction Analysis</h2>
+                <h2>Step 3: Map Main Door</h2>
                 <div class="step-nav">
                     <button id="backStep3" class="back-btn">Back</button>
-                    <button id="nextStep3" class="next-btn">Next</button>
+                    <button id="nextStep3" class="next-btn" style="display: none;">Next</button>
+                </div>
+            </div>
+            <p>Click two points on a wall to mark the main door location.</p>
+            
+            <div id="toolbox3" class="toolbox">
+                <div class="tool-group">
+                    <button id="drawDoor" class="tool-btn active">🚪 Draw Main Door</button>
+                    <button id="clearDoor" class="tool-btn">Clear Door</button>
                 </div>
             </div>
             
-            <div id="toolbox3" class="toolbox">
+            <div class="door-container">
+                <canvas id="doorCanvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Step 4: Plot Exit Arrow -->
+        <div id="step4" class="step">
+            <div class="step-header">
+                <h2>Step 4: Plot Exit Arrow</h2>
+                <div class="step-nav">
+                    <button id="backStep4" class="back-btn">Back</button>
+                    <button id="nextStep4" class="next-btn" style="display: none;">Next</button>
+                </div>
+            </div>
+            <p>Click on one of the triangles to select the door opening direction.</p>
+            
+            <div class="exit-container">
+                <canvas id="exitCanvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Step 5: Direction Analysis -->
+        <div id="step5" class="step">
+            <div class="step-header">
+                <h2>Step 5: Direction Analysis</h2>
+                <div class="step-nav">
+                    <button id="backStep5" class="back-btn">Back</button>
+                    <button id="nextStep5" class="next-btn">Next</button>
+                </div>
+            </div>
+            
+            <div id="toolbox5" class="toolbox">
                 <div class="tool-group">
                     <div class="direction-selector">
                         <label>Directions:</label>
@@ -107,16 +146,16 @@
             </div>
         </div>
         
-        <!-- Step 4: Final View -->
-        <div id="step4" class="step">
+        <!-- Step 6: Final View -->
+        <div id="step6" class="step">
             <div class="step-header">
-                <h2>Step 4: Final View</h2>
+                <h2>Step 6: Final View</h2>
                 <div class="step-nav">
-                    <button id="backStep4" class="back-btn">Back</button>
+                    <button id="backStep6" class="back-btn">Back</button>
                 </div>
             </div>
             
-            <div id="toolbox4" class="toolbox">
+            <div id="toolbox6" class="toolbox">
                 <div class="tool-group">
                     <label>Rotate:</label>
                     <button id="finalRotateLeft">-</button>

@@ -17,6 +17,12 @@ class VastuApp {
         this.showDirectionsVisible = false;
         this.showRectangleVisible = false;
         this.finalRotation = 0;
+        this.doorPoints = [];
+        this.isDrawingDoor = false;
+        this.selectedExitDirection = null;
+        this.exitArrows = [];
+        this.showExitLabels = true;
+        this.selectedTriangle = null;
         
         this.initializeEventListeners();
         this.setupCanvases();
@@ -46,20 +52,30 @@ class VastuApp {
         document.getElementById('zoomOut2').addEventListener('click', () => this.zoom2(0.9));
         document.getElementById('nextStep2').addEventListener('click', () => this.goToStep(3));
         
-        // Step 3 - Direction Analysis
+        // Step 3 - Map Main Door
+        document.getElementById('drawDoor').addEventListener('click', () => this.toggleDrawDoor());
+        document.getElementById('clearDoor').addEventListener('click', () => this.clearDoor());
+        document.getElementById('backStep3').addEventListener('click', () => this.goToStep(2));
+        document.getElementById('nextStep3').addEventListener('click', () => this.goToStep(4));
+        
+        // Step 4 - Plot Exit Arrow
+        document.getElementById('backStep4').addEventListener('click', () => this.goToStep(3));
+        document.getElementById('nextStep4').addEventListener('click', () => this.goToStep(5));
+        
+        // Step 5 - Direction Analysis
         document.getElementById('showRectangle').addEventListener('click', () => this.showImaginaryRectangle());
         document.getElementById('directionCount').addEventListener('change', (e) => this.updateDirections(e.target.value));
         document.getElementById('showDirections').addEventListener('click', () => this.showDirections());
         document.getElementById('colorSections').addEventListener('click', () => this.toggleColors());
-        document.getElementById('backStep3').addEventListener('click', () => this.goToStep(2));
-        document.getElementById('nextStep3').addEventListener('click', () => this.goToStep(4));
+        document.getElementById('backStep5').addEventListener('click', () => this.goToStep(4));
+        document.getElementById('nextStep5').addEventListener('click', () => this.goToStep(6));
         
-        // Step 4 - Final View
+        // Step 6 - Final View
         document.getElementById('finalRotateLeft').addEventListener('click', () => this.rotateFinal(-1));
         document.getElementById('finalRotateRight').addEventListener('click', () => this.rotateFinal(1));
         document.getElementById('finalRotateInput').addEventListener('input', (e) => this.setFinalRotation(e.target.value));
         document.getElementById('downloadImage').addEventListener('click', () => this.downloadImage());
-        document.getElementById('backStep4').addEventListener('click', () => this.goToStep(3));
+        document.getElementById('backStep6').addEventListener('click', () => this.goToStep(5));
     }
     
     setupCanvases() {
@@ -67,6 +83,10 @@ class VastuApp {
         this.imageCtx = this.imageCanvas.getContext('2d');
         this.drawingCanvas = document.getElementById('drawingCanvas');
         this.drawingCtx = this.drawingCanvas.getContext('2d');
+        this.doorCanvas = document.getElementById('doorCanvas');
+        this.doorCtx = this.doorCanvas.getContext('2d');
+        this.exitCanvas = document.getElementById('exitCanvas');
+        this.exitCtx = this.exitCanvas.getContext('2d');
         this.analysisCanvas = document.getElementById('analysisCanvas');
         this.analysisCtx = this.analysisCanvas.getContext('2d');
         this.finalCanvas = document.getElementById('finalCanvas');
@@ -77,13 +97,15 @@ class VastuApp {
         
         this.setupDrawingEvents();
         this.setupImageEvents();
+        this.setupDoorEvents();
+        this.setupExitEvents();
     }
     
     resizeCanvases() {
         const containerWidth = Math.min(window.innerWidth - 40, 800);
         const containerHeight = Math.min(window.innerHeight - 300, 500);
         
-        [this.imageCanvas, this.drawingCanvas, this.analysisCanvas, this.finalCanvas].forEach(canvas => {
+        [this.imageCanvas, this.drawingCanvas, this.doorCanvas, this.exitCanvas, this.analysisCanvas, this.finalCanvas].forEach(canvas => {
             canvas.width = containerWidth;
             canvas.height = containerHeight;
         });
@@ -106,6 +128,313 @@ class VastuApp {
         this.drawingCanvas.addEventListener('mousemove', (e) => this.drag2(e));
         this.drawingCanvas.addEventListener('mouseup', () => this.endDrag2());
         this.drawingCanvas.addEventListener('wheel', (e) => this.handleWheel2(e));
+    }
+    
+    setupDoorEvents() {
+        this.doorCanvas.addEventListener('click', (e) => {
+            if (document.getElementById('drawDoor').classList.contains('active')) {
+                this.addDoorPoint(e);
+            }
+        });
+    }
+    
+    setupDoorCanvas() {
+        this.doorCtx.clearRect(0, 0, this.doorCanvas.width, this.doorCanvas.height);
+        if (this.image) {
+            this.drawImageOnCanvas(this.doorCtx, this.doorCanvas);
+        }
+        this.drawGridOnCanvas(this.doorCtx, this.doorCanvas);
+        this.drawWallsOnDoor();
+        if (this.doorPoints.length > 0) {
+            this.drawDoorPoints();
+        }
+    }
+    
+    drawWallsOnDoor() {
+        this.doorCtx.strokeStyle = '#3498db';
+        this.doorCtx.lineWidth = 2;
+        
+        if (this.walls.length > 1) {
+            this.doorCtx.beginPath();
+            this.doorCtx.moveTo(this.walls[0].x, this.walls[0].y);
+            for (let i = 1; i < this.walls.length; i++) {
+                this.doorCtx.lineTo(this.walls[i].x, this.walls[i].y);
+            }
+            this.doorCtx.closePath();
+            this.doorCtx.stroke();
+        }
+        
+        // Draw wall points
+        this.walls.forEach((point, index) => {
+            const isConnected = this.isPointConnected(index);
+            this.doorCtx.fillStyle = isConnected ? '#27ae60' : '#e74c3c';
+            this.doorCtx.beginPath();
+            this.doorCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+            this.doorCtx.fill();
+        });
+    }
+    
+    drawDoorPoints() {
+        // Draw door points and line
+        if (this.doorPoints.length > 0) {
+            this.doorCtx.fillStyle = '#e74c3c';
+            this.doorCtx.strokeStyle = '#c0392b';
+            this.doorCtx.lineWidth = 4;
+            
+            // Draw door line if we have 2 points
+            if (this.doorPoints.length === 2) {
+                this.doorCtx.beginPath();
+                this.doorCtx.moveTo(this.doorPoints[0].x, this.doorPoints[0].y);
+                this.doorCtx.lineTo(this.doorPoints[1].x, this.doorPoints[1].y);
+                this.doorCtx.stroke();
+            }
+            
+            // Draw door points
+            this.doorPoints.forEach(point => {
+                this.doorCtx.beginPath();
+                this.doorCtx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
+                this.doorCtx.fill();
+            });
+        }
+    }
+    
+    toggleDrawDoor() {
+        const drawBtn = document.getElementById('drawDoor');
+        drawBtn.classList.add('active');
+        this.doorCanvas.style.cursor = 'crosshair';
+        this.isDrawingDoor = true;
+    }
+    
+    addDoorPoint(e) {
+        if (this.doorPoints.length >= 2) return;
+        
+        const rect = this.doorCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.doorPoints.push({x, y});
+        this.setupDoorCanvas();
+        
+        if (this.doorPoints.length === 2) {
+            document.getElementById('nextStep3').style.display = 'block';
+        }
+    }
+    
+    drawDoor() {
+        this.setupDoorCanvas();
+    }
+    
+    clearDoor() {
+        this.doorPoints = [];
+        this.setupDoorCanvas();
+        document.getElementById('nextStep3').style.display = 'none';
+    }
+    
+    toggleMoveMode3() {
+        const drawBtn = document.getElementById('drawDoor');
+        const moveBtn = document.getElementById('moveBtn3');
+        
+        moveBtn.classList.toggle('active');
+        if (moveBtn.classList.contains('active')) {
+            drawBtn.classList.remove('active');
+            this.doorCanvas.style.cursor = 'move';
+            this.isDrawingDoor = false;
+        } else {
+            drawBtn.classList.add('active');
+            this.doorCanvas.style.cursor = 'crosshair';
+            this.isDrawingDoor = true;
+        }
+    }
+    
+    startDragDoor(e) {
+        if (!document.getElementById('moveBtn3').classList.contains('active')) return;
+        this.isDragging = true;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+    }
+    
+    dragDoor(e) {
+        if (!this.isDragging) return;
+        const deltaX = e.clientX - this.lastX;
+        const deltaY = e.clientY - this.lastY;
+        this.offsetX += deltaX;
+        this.offsetY += deltaY;
+        this.lastX = e.clientX;
+        this.lastY = e.clientY;
+        this.setupDoorCanvas();
+    }
+    
+    endDragDoor() {
+        this.isDragging = false;
+    }
+    
+    setupExitEvents() {
+        this.exitCanvas.addEventListener('click', (e) => this.selectExitDirection(e));
+    }
+    
+    setupExitCanvas() {
+        this.exitCtx.clearRect(0, 0, this.exitCanvas.width, this.exitCanvas.height);
+        if (this.image) {
+            this.drawImageOnCanvas(this.exitCtx, this.exitCanvas);
+        }
+        this.drawGridOnCanvas(this.exitCtx, this.exitCanvas);
+        this.drawWallsOnExit();
+        this.drawDoorOnExit();
+        this.generateExitArrows();
+        this.drawExitArrows();
+    }
+    
+    drawWallsOnExit() {
+        this.exitCtx.strokeStyle = '#3498db';
+        this.exitCtx.lineWidth = 2;
+        
+        if (this.walls.length > 1) {
+            this.exitCtx.beginPath();
+            this.exitCtx.moveTo(this.walls[0].x, this.walls[0].y);
+            for (let i = 1; i < this.walls.length; i++) {
+                this.exitCtx.lineTo(this.walls[i].x, this.walls[i].y);
+            }
+            this.exitCtx.closePath();
+            this.exitCtx.stroke();
+        }
+    }
+    
+    drawDoorOnExit() {
+        if (this.doorPoints.length === 2) {
+            this.exitCtx.strokeStyle = '#c0392b';
+            this.exitCtx.lineWidth = 4;
+            this.exitCtx.beginPath();
+            this.exitCtx.moveTo(this.doorPoints[0].x, this.doorPoints[0].y);
+            this.exitCtx.lineTo(this.doorPoints[1].x, this.doorPoints[1].y);
+            this.exitCtx.stroke();
+        }
+    }
+    
+    generateExitArrows() {
+        if (this.doorPoints.length !== 2) return;
+        
+        const doorCenterX = (this.doorPoints[0].x + this.doorPoints[1].x) / 2;
+        const doorCenterY = (this.doorPoints[0].y + this.doorPoints[1].y) / 2;
+        
+        // Calculate door direction vector
+        const doorVectorX = this.doorPoints[1].x - this.doorPoints[0].x;
+        const doorVectorY = this.doorPoints[1].y - this.doorPoints[0].y;
+        
+        // Calculate perpendicular vectors (both directions)
+        const perpX1 = -doorVectorY;
+        const perpY1 = doorVectorX;
+        const perpX2 = doorVectorY;
+        const perpY2 = -doorVectorX;
+        
+        // Normalize and scale
+        const length1 = Math.sqrt(perpX1 * perpX1 + perpY1 * perpY1);
+        const length2 = Math.sqrt(perpX2 * perpX2 + perpY2 * perpY2);
+        
+        const triangleDistance = 30;
+        
+        this.exitArrows = [
+            {
+                x: doorCenterX + (perpX1 / length1) * triangleDistance,
+                y: doorCenterY + (perpY1 / length1) * triangleDistance,
+                direction: 'in',
+                color: '#e74c3c',
+                selected: false,
+                angle: Math.atan2(perpY1, perpX1)
+            },
+            {
+                x: doorCenterX + (perpX2 / length2) * triangleDistance,
+                y: doorCenterY + (perpY2 / length2) * triangleDistance,
+                direction: 'out',
+                color: '#27ae60',
+                selected: false,
+                angle: Math.atan2(perpY2, perpX2)
+            }
+        ];
+    }
+    
+    drawExitArrows() {
+        this.exitArrows.forEach(arrow => {
+            if (this.selectedExitDirection && arrow.direction !== this.selectedExitDirection) {
+                return; // Hide unselected triangles
+            }
+            
+            // Draw triangle
+            const size = 15;
+            this.exitCtx.fillStyle = arrow.selected ? '#f39c12' : arrow.color;
+            this.exitCtx.strokeStyle = arrow.selected ? '#f39c12' : arrow.color;
+            this.exitCtx.lineWidth = 2;
+            
+            this.exitCtx.save();
+            this.exitCtx.translate(arrow.x, arrow.y);
+            this.exitCtx.rotate(arrow.angle);
+            
+            this.exitCtx.beginPath();
+            this.exitCtx.moveTo(size, 0);
+            this.exitCtx.lineTo(-size/2, -size/2);
+            this.exitCtx.lineTo(-size/2, size/2);
+            this.exitCtx.closePath();
+            this.exitCtx.fill();
+            this.exitCtx.stroke();
+            
+            this.exitCtx.restore();
+            
+            // Draw compass direction label on top of triangle head
+            const compassDirection = this.getCompassDirection(arrow.angle);
+            const headX = arrow.x + Math.cos(arrow.angle) * 20;
+            const headY = arrow.y + Math.sin(arrow.angle) * 20;
+            
+            this.exitCtx.fillStyle = '#000000';
+            this.exitCtx.font = 'bold 14px Arial';
+            this.exitCtx.textAlign = 'center';
+            this.exitCtx.textBaseline = 'middle';
+            this.exitCtx.fillText(compassDirection, headX, headY - 10);
+        });
+    }
+    
+    selectExitDirection(e) {
+        const rect = this.exitCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if click is near any triangle
+        this.exitArrows.forEach(arrow => {
+            const distance = Math.sqrt((x - arrow.x) ** 2 + (y - arrow.y) ** 2);
+            if (distance < 25) {
+                // Deselect all arrows
+                this.exitArrows.forEach(a => a.selected = false);
+                // Select clicked arrow
+                arrow.selected = true;
+                this.selectedExitDirection = arrow.direction;
+                // Store selected triangle data
+                this.selectedTriangle = {
+                    x: arrow.x,
+                    y: arrow.y,
+                    angle: arrow.angle,
+                    direction: this.getCompassDirection(arrow.angle)
+                };
+                document.getElementById('nextStep4').style.display = 'block';
+                this.setupExitCanvas();
+            }
+        });
+    }
+    
+    getCompassDirection(angle) {
+        // Convert angle to degrees and normalize (0 = East, -90 = North)
+        let degrees = (angle * 180 / Math.PI + 360) % 360;
+        
+        // Adjust so 0 degrees = North (top of screen)
+        degrees = (degrees + 90) % 360;
+        
+        // 16-direction compass
+        const directions = [
+            'N', 'NNE', 'NE', 'ENE',
+            'E', 'ESE', 'SE', 'SSE', 
+            'S', 'SSW', 'SW', 'WSW',
+            'W', 'WNW', 'NW', 'NNW'
+        ];
+        
+        const index = Math.round(degrees / 22.5) % 16;
+        return directions[index];
     }
     
     handleImageUpload(event) {
@@ -239,15 +568,19 @@ class VastuApp {
         if (step === 2) {
             this.setupDrawingCanvas();
         } else if (step === 3) {
-            this.setupAnalysisCanvas();
-            this.setupStep3Events();
+            this.setupDoorCanvas();
         } else if (step === 4) {
+            this.setupExitCanvas();
+        } else if (step === 5) {
+            this.setupAnalysisCanvas();
+            this.setupStep5Events();
+        } else if (step === 6) {
             this.setupFinalCanvas();
         }
     }
     
-    setupStep3Events() {
-        // No interactive events for step 3 - view only
+    setupStep5Events() {
+        // No interactive events for step 5 - view only
     }
     
     setupDrawingCanvas() {
@@ -462,6 +795,8 @@ class VastuApp {
             this.drawImageOnCanvas(this.analysisCtx, this.analysisCanvas);
         }
         this.drawWallsOnAnalysis();
+        this.drawDoorOnAnalysis();
+        this.drawSelectedTriangleOnAnalysis();
         this.calculateCenter();
     }
     
@@ -487,6 +822,59 @@ class VastuApp {
             this.analysisCtx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
             this.analysisCtx.fill();
         });
+    }
+    
+    drawDoorOnAnalysis() {
+        if (this.doorPoints.length === 2) {
+            this.analysisCtx.strokeStyle = '#c0392b';
+            this.analysisCtx.lineWidth = 4;
+            this.analysisCtx.beginPath();
+            this.analysisCtx.moveTo(this.doorPoints[0].x, this.doorPoints[0].y);
+            this.analysisCtx.lineTo(this.doorPoints[1].x, this.doorPoints[1].y);
+            this.analysisCtx.stroke();
+            
+            // Draw door points
+            this.analysisCtx.fillStyle = '#e74c3c';
+            this.doorPoints.forEach(point => {
+                this.analysisCtx.beginPath();
+                this.analysisCtx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
+                this.analysisCtx.fill();
+            });
+        }
+    }
+    
+    drawSelectedTriangleOnAnalysis() {
+        if (!this.selectedTriangle) return;
+        
+        // Draw triangle
+        const size = 15;
+        this.analysisCtx.fillStyle = '#f39c12';
+        this.analysisCtx.strokeStyle = '#f39c12';
+        this.analysisCtx.lineWidth = 2;
+        
+        this.analysisCtx.save();
+        this.analysisCtx.translate(this.selectedTriangle.x, this.selectedTriangle.y);
+        this.analysisCtx.rotate(this.selectedTriangle.angle);
+        
+        this.analysisCtx.beginPath();
+        this.analysisCtx.moveTo(size, 0);
+        this.analysisCtx.lineTo(-size/2, -size/2);
+        this.analysisCtx.lineTo(-size/2, size/2);
+        this.analysisCtx.closePath();
+        this.analysisCtx.fill();
+        this.analysisCtx.stroke();
+        
+        this.analysisCtx.restore();
+        
+        // Draw compass direction label on top of triangle head
+        const headX = this.selectedTriangle.x + Math.cos(this.selectedTriangle.angle) * 20;
+        const headY = this.selectedTriangle.y + Math.sin(this.selectedTriangle.angle) * 20;
+        
+        this.analysisCtx.fillStyle = '#000000';
+        this.analysisCtx.font = 'bold 14px Arial';
+        this.analysisCtx.textAlign = 'center';
+        this.analysisCtx.textBaseline = 'middle';
+        this.analysisCtx.fillText(this.selectedTriangle.direction, headX, headY - 10);
     }
     
     calculateCenter() {
@@ -780,6 +1168,12 @@ class VastuApp {
         // Draw walls
         this.drawWallsOnFinal();
         
+        // Draw door
+        this.drawDoorOnFinal();
+        
+        // Draw selected triangle
+        this.drawSelectedTriangleOnFinal();
+        
         // Draw 3x3 grid if it was visible in step 3
         if (this.showRectangleVisible && this.centerPoint) {
             this.draw3x3GridOnFinal();
@@ -806,6 +1200,59 @@ class VastuApp {
             this.finalCtx.closePath();
             this.finalCtx.stroke();
         }
+    }
+    
+    drawDoorOnFinal() {
+        if (this.doorPoints.length === 2) {
+            this.finalCtx.strokeStyle = '#c0392b';
+            this.finalCtx.lineWidth = 4;
+            this.finalCtx.beginPath();
+            this.finalCtx.moveTo(this.doorPoints[0].x, this.doorPoints[0].y);
+            this.finalCtx.lineTo(this.doorPoints[1].x, this.doorPoints[1].y);
+            this.finalCtx.stroke();
+            
+            // Draw door points
+            this.finalCtx.fillStyle = '#e74c3c';
+            this.doorPoints.forEach(point => {
+                this.finalCtx.beginPath();
+                this.finalCtx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
+                this.finalCtx.fill();
+            });
+        }
+    }
+    
+    drawSelectedTriangleOnFinal() {
+        if (!this.selectedTriangle) return;
+        
+        // Draw triangle
+        const size = 15;
+        this.finalCtx.fillStyle = '#f39c12';
+        this.finalCtx.strokeStyle = '#f39c12';
+        this.finalCtx.lineWidth = 2;
+        
+        this.finalCtx.save();
+        this.finalCtx.translate(this.selectedTriangle.x, this.selectedTriangle.y);
+        this.finalCtx.rotate(this.selectedTriangle.angle);
+        
+        this.finalCtx.beginPath();
+        this.finalCtx.moveTo(size, 0);
+        this.finalCtx.lineTo(-size/2, -size/2);
+        this.finalCtx.lineTo(-size/2, size/2);
+        this.finalCtx.closePath();
+        this.finalCtx.fill();
+        this.finalCtx.stroke();
+        
+        this.finalCtx.restore();
+        
+        // Draw compass direction label on top of triangle head
+        const headX = this.selectedTriangle.x + Math.cos(this.selectedTriangle.angle) * 20;
+        const headY = this.selectedTriangle.y + Math.sin(this.selectedTriangle.angle) * 20;
+        
+        this.finalCtx.fillStyle = '#000000';
+        this.finalCtx.font = 'bold 14px Arial';
+        this.finalCtx.textAlign = 'center';
+        this.finalCtx.textBaseline = 'middle';
+        this.finalCtx.fillText(this.selectedTriangle.direction, headX, headY - 10);
     }
     
     draw3x3GridOnFinal() {
