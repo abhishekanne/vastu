@@ -109,17 +109,26 @@
         
         <!-- Step 4: Final View -->
         <div id="step4" class="step">
-            <h2>Step 4: Final View</h2>
-            <div class="final-controls">
+            <div class="step-header">
+                <h2>Step 4: Final View</h2>
+                <div class="step-nav">
+                    <button id="backStep4" class="back-btn">Back</button>
+                </div>
+            </div>
+            
+            <div id="toolbox4" class="toolbox">
                 <div class="tool-group">
-                    <label>Final Rotation:</label>
+                    <label>Rotate:</label>
                     <button id="finalRotateLeft">-</button>
                     <input type="number" id="finalRotateInput" value="0" min="0" max="360">
                     <button id="finalRotateRight">+</button>
                     <span>°</span>
                 </div>
-                <button id="downloadImage" class="download-btn">Download Image</button>
+                <div class="tool-group">
+                    <button id="downloadImage" class="download-btn">📥 Download Image</button>
+                </div>
             </div>
+            
             <div class="final-container">
                 <canvas id="finalCanvas"></canvas>
             </div>

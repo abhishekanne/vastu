@@ -59,6 +59,7 @@ class VastuApp {
         document.getElementById('finalRotateRight').addEventListener('click', () => this.rotateFinal(1));
         document.getElementById('finalRotateInput').addEventListener('input', (e) => this.setFinalRotation(e.target.value));
         document.getElementById('downloadImage').addEventListener('click', () => this.downloadImage());
+        document.getElementById('backStep4').addEventListener('click', () => this.goToStep(3));
     }
     
     setupCanvases() {
